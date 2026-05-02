@@ -4,6 +4,7 @@ import re
 from collections import defaultdict
 from datetime import datetime
 import io
+import pdfminer.pdfdocument
 
 def norm_col(col):
     low = col.lower()
@@ -81,17 +82,31 @@ def extract_person(detail, direction):
 
 def parse_mpesa_statement(file_obj, password):
     raw_rows = []
-    with pdfplumber.open(file_obj, password=password) as pdf:
-        for page in pdf.pages:
-            for table in page.extract_tables():
-                if not table or not table[0]:
-                    continue
-                first = " ".join(str(c or "") for c in table[0])
-                if "Receipt" in first or "Details" in first or len(table[0]) >= 5:
-                    raw_rows.extend(table)
+    try:
+        # Handle cases where password might be empty string but pdfplumber expects None
+        pwd = password if password else None
+        
+        with pdfplumber.open(file_obj, password=pwd) as pdf:
+            for page in pdf.pages:
+                for table in page.extract_tables():
+                    if not table or not table[0]:
+                        continue
+                    first = " ".join(str(c or "") for c in table[0])
+                    if "Receipt" in first or "Details" in first or len(table[0]) >= 5:
+                        raw_rows.extend(table)
+    except pdfminer.pdfdocument.PDFPasswordIncorrect:
+        raise ValueError("Incorrect PDF password. Please check your ID number and try again.")
+    except Exception as e:
+        err_str = str(e).lower()
+        if any(kw in err_str for kw in ["password", "incorrect", "decrypt", "authorized", "owner"]):
+            raise ValueError("Incorrect PDF password. Please check your ID number and try again.")
+        elif "not a pdf" in err_str or "format" in err_str:
+            raise ValueError("Invalid file format. Please upload a valid M-Pesa PDF statement.")
+        else:
+            raise ValueError("Could not open PDF. Please verify your password or check if the file is a valid M-Pesa statement.")
                     
     if not raw_rows:
-        raise ValueError("No transaction table found in the PDF.")
+        raise ValueError("Could not find M-Pesa transaction data in this PDF. Ensure it's an official M-Pesa statement.")
 
     HEADER_KEYWORDS = {"receipt", "completion", "initiation", "details", "paid", "withdrawn", "balance"}
     header_idx = 0

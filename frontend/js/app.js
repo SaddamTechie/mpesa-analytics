@@ -9,9 +9,11 @@ const fileName = document.getElementById('file-name');
 const dropText = document.getElementById('drop-text');
 const pwdInput = document.getElementById('pdf-password');
 const analyzeBtn = document.getElementById('analyze-btn');
-const spinner = document.getElementById('analyze-spinner');
-const btnText = document.getElementById('analyze-text');
+const loader = document.getElementById('upload-loader');
+const errorToast = document.getElementById('error-toast');
 const errorMsg = document.getElementById('error-msg');
+const dropSubtext = document.getElementById('drop-subtext');
+const pwdToggle = document.getElementById('pwd-toggle');
 
 let selectedFile = null;
 
@@ -29,6 +31,7 @@ function handleFile(file) {
   if (!file) return;
   selectedFile = file;
   dropText.style.display = 'none';
+  dropSubtext.style.display = 'none';
   fileName.textContent = file.name;
   fileName.style.display = 'block';
   checkForm();
@@ -37,15 +40,92 @@ function handleFile(file) {
 pwdInput.addEventListener('input', checkForm);
 
 function checkForm() {
-  analyzeBtn.disabled = !(selectedFile && pwdInput.value.length > 0);
+  analyzeBtn.disabled = !selectedFile;
 }
+
+pwdInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !analyzeBtn.disabled) {
+    analyzeBtn.click();
+  }
+});
+
+pwdToggle.addEventListener('click', () => {
+  const isPwd = pwdInput.type === 'password';
+  pwdInput.type = isPwd ? 'text' : 'password';
+  pwdToggle.textContent = isPwd ? '🙈' : '👁';
+});
+
+function resetApp() {
+  selectedFile = null;
+  fileInput.value = '';
+  pwdInput.value = '';
+  fileName.textContent = '';
+  fileName.style.display = 'none';
+  dropText.style.display = 'block';
+  document.getElementById('upload-screen').style.display = 'flex';
+  document.getElementById('dashboard-app').style.display = 'none';
+  analyzeBtn.disabled = true;
+  loader.style.display = 'none';
+  errorToast.classList.remove('visible');
+  
+  // Clear charts to avoid memory leaks or overlapping
+  Chart.getChart("monthlyChart")?.destroy();
+  Chart.getChart("balanceChart")?.destroy();
+  Chart.getChart("donutChart")?.destroy();
+  Chart.getChart("catChart")?.destroy();
+  Chart.getChart("netChart")?.destroy();
+  Chart.getChart("netChart2")?.destroy();
+  Chart.getChart("catInChart")?.destroy();
+  Chart.getChart("catOutBig")?.destroy();
+  if (pChartRef) { pChartRef.destroy(); pChartRef = null; }
+  
+  // Reset scroll positions
+  window.scrollTo(0,0);
+}
+
+async function openNewWindow() {
+  if (window.pywebview && window.pywebview.api) {
+    await window.pywebview.api.open_new_window();
+  }
+}
+
+let currentZoom = 1;
+function adjustZoom(delta) {
+  currentZoom = Math.max(0.5, Math.min(2, currentZoom + delta));
+  updateZoomUI();
+}
+
+function resetZoom() {
+  currentZoom = 1;
+  updateZoomUI();
+}
+
+function updateZoomUI() {
+  document.getElementById('app-root').style.zoom = currentZoom;
+  document.getElementById('zoom-val').textContent = Math.round(currentZoom * 100) + '%';
+}
+
+// Global Keyboard Shortcuts for Zoom
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key === '=' || e.key === '+') {
+      e.preventDefault();
+      adjustZoom(0.1);
+    } else if (e.key === '-') {
+      e.preventDefault();
+      adjustZoom(-0.1);
+    } else if (e.key === '0') {
+      e.preventDefault();
+      resetZoom();
+    }
+  }
+});
 
 analyzeBtn.addEventListener('click', async () => {
   if (!selectedFile) return;
   
-  errorMsg.style.display = 'none';
-  spinner.style.display = 'block';
-  btnText.textContent = 'Processing...';
+  errorToast.classList.remove('visible');
+  loader.style.display = 'flex';
   analyzeBtn.disabled = true;
   
   try {
@@ -74,10 +154,14 @@ analyzeBtn.addEventListener('click', async () => {
 
 function showError(msg) {
   errorMsg.textContent = msg;
-  errorMsg.style.display = 'block';
-  spinner.style.display = 'none';
-  btnText.textContent = 'Analyze';
+  errorToast.classList.add('visible');
+  loader.style.display = 'none';
   analyzeBtn.disabled = false;
+  
+  // Auto-hide toast after 6 seconds
+  setTimeout(() => {
+    errorToast.classList.remove('visible');
+  }, 6000);
 }
 
 /* ══════════════════════════════════════════════
@@ -93,6 +177,14 @@ function initDashboard(data) {
   // Meta
   document.getElementById('meta-period').textContent = D.meta.statement_period;
   document.getElementById('tx-count-badge').textContent = D.kpis.tx_count.toLocaleString() + ' transactions';
+  
+  // Clear containers to prevent merging data from multiple statements
+  document.getElementById('kpi-grid').innerHTML = '';
+  document.getElementById('dow-grid').innerHTML = '';
+  document.getElementById('hm-wrap').innerHTML = '';
+  document.getElementById('tx-filters').innerHTML = '';
+  document.getElementById('insight-grid').innerHTML = '';
+  document.getElementById('plist').innerHTML = '';
 /* ── NAV ── */
 function go(id, btn) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -586,5 +678,9 @@ new Chart(document.getElementById('catOutBig'), {
   window.psort = psort;
   window.pfilter = pfilter;
   window.txFilter = txFilter;
+  window.resetApp = resetApp;
+  window.openNewWindow = openNewWindow;
+  window.adjustZoom = adjustZoom;
+  window.resetZoom = resetZoom;
 
 } // end initDashboard
