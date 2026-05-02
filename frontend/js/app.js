@@ -1,16 +1,98 @@
 /* ══════════════════════════════════════════════
+   DRAG AND DROP / PYWEBVIEW BRIDGE
+══════════════════════════════════════════════ */
+let D = {};
+
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const fileName = document.getElementById('file-name');
+const dropText = document.getElementById('drop-text');
+const pwdInput = document.getElementById('pdf-password');
+const analyzeBtn = document.getElementById('analyze-btn');
+const spinner = document.getElementById('analyze-spinner');
+const btnText = document.getElementById('analyze-text');
+const errorMsg = document.getElementById('error-msg');
+
+let selectedFile = null;
+
+// File Selection Handlers
+dropZone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+
+function handleFile(file) {
+  if (!file) return;
+  selectedFile = file;
+  dropText.style.display = 'none';
+  fileName.textContent = file.name;
+  fileName.style.display = 'block';
+  checkForm();
+}
+
+pwdInput.addEventListener('input', checkForm);
+
+function checkForm() {
+  analyzeBtn.disabled = !(selectedFile && pwdInput.value.length > 0);
+}
+
+analyzeBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  
+  errorMsg.style.display = 'none';
+  spinner.style.display = 'block';
+  btnText.textContent = 'Processing...';
+  analyzeBtn.disabled = true;
+  
+  try {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      // Get base64 string without the data URI prefix
+      const b64_data = e.target.result.split(',')[1];
+      const pwd = pwdInput.value;
+      
+      // Call Python backend via pywebview
+      const response = await window.pywebview.api.analyze_pdf(b64_data, pwd);
+      
+      if (response.success) {
+        document.getElementById('upload-screen').style.display = 'none';
+        document.getElementById('dashboard-app').style.display = 'flex';
+        initDashboard(response.data);
+      } else {
+        showError(response.error || "Failed to parse PDF.");
+      }
+    };
+    reader.readAsDataURL(selectedFile);
+  } catch (err) {
+    showError("An unexpected error occurred.");
+  }
+});
+
+function showError(msg) {
+  errorMsg.textContent = msg;
+  errorMsg.style.display = 'block';
+  spinner.style.display = 'none';
+  btnText.textContent = 'Analyze';
+  analyzeBtn.disabled = false;
+}
+
+/* ══════════════════════════════════════════════
    DATA & HELPERS
 ══════════════════════════════════════════════ */
-const D = window.__DASHBOARD_DATA__ || {};
-
 const fmt = n => Number(n || 0).toLocaleString("en-KE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtS = n => { n = Number(n || 0); if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'; if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K'; return n.toFixed(0); };
 const cls = (el, on, ...off) => { el.classList.add(on); off.forEach(c => el.classList.remove(c)); };
 
-// Meta
-document.getElementById('meta-period').textContent = D.meta.statement_period;
-document.getElementById('tx-count-badge').textContent = D.kpis.tx_count.toLocaleString() + ' transactions';
-
+function initDashboard(data) {
+  D = data;
+  
+  // Meta
+  document.getElementById('meta-period').textContent = D.meta.statement_period;
+  document.getElementById('tx-count-badge').textContent = D.kpis.tx_count.toLocaleString() + ' transactions';
 /* ── NAV ── */
 function go(id, btn) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
@@ -497,3 +579,12 @@ new Chart(document.getElementById('catOutBig'), {
     scales: { x: { grid: { display: false }, ticks: { font: { size: 10 } } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { callback: v => 'KES ' + fmtS(v), font: { size: 10 } } } }
   }
 });
+
+  // Expose global functions to window so HTML event handlers can reach them
+  window.go = go;
+  window.switchDonut = switchDonut;
+  window.psort = psort;
+  window.pfilter = pfilter;
+  window.txFilter = txFilter;
+
+} // end initDashboard
