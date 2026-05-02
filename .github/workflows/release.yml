@@ -82,16 +82,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: release_assets
-
-      - name: Prepare Release Files
-        run: |
-          mkdir -p final_assets
-          cp -r release_assets/* final_assets/
+          merge-multiple: true
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: final_assets/*
+          files: |
+            release_assets/MpesaAnalytics_Linux
+            release_assets/MpesaAnalytics_Windows.exe
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
