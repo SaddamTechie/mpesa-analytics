@@ -44,7 +44,7 @@ jobs:
           
       - name: Install Platform Specific Deps (Linux)
         if: runner.os == 'Linux'
-        run: pip install PyGObject
+        run: pip install 'PyGObject==3.48.0'
 
       - name: Install Platform Specific Deps (Windows)
         if: runner.os == 'Windows'
@@ -68,7 +68,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: dist/MpesaAnalytics_*
+          path: dist/${{ matrix.artifact_name }}
 
   release:
     name: Create GitHub Release
@@ -84,7 +84,7 @@ jobs:
       - name: Prepare Release Files
         run: |
           mkdir -p final_assets
-          cp release_assets/**/* final_assets/
+          cp -r release_assets/* final_assets/
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
