@@ -1,0 +1,97 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger only on version tags (e.g. v1.0)
+  workflow_dispatch: # Allow manual triggering for testing
+
+jobs:
+  build:
+    name: Build for ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    # Explicitly grant permissions to allow the release to be created
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: MpesaAnalytics_Linux
+          - os: windows-latest
+            artifact_name: MpesaAnalytics_Windows.exe
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip' # Enable pip caching for faster builds
+
+      - name: Install System Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libgirepository1.0-dev pkg-config libcairo2-dev
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywebview pdfplumber pyinstaller appdirs setuptools
+          
+      - name: Install Platform Specific Deps (Linux)
+        if: runner.os == 'Linux'
+        run: pip install PyGObject
+
+      - name: Install Platform Specific Deps (Windows)
+        if: runner.os == 'Windows'
+        run: pip install pythonnet
+
+      - name: Build Executable
+        run: |
+          python -m PyInstaller --noconfirm MPesaAnalytics.spec
+
+      - name: Rename Artifact (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          mv dist/MPesaAnalytics.exe dist/MpesaAnalytics_Windows.exe
+
+      - name: Rename Artifact (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mv dist/MPesaAnalytics dist/MpesaAnalytics_Linux
+
+      - name: Upload Build Artifacts (Testing)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/MpesaAnalytics_*
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release_assets
+
+      - name: Prepare Release Files
+        run: |
+          mkdir -p final_assets
+          cp release_assets/**/* final_assets/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: final_assets/*
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

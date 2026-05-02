@@ -79,3 +79,4 @@ if __name__ == '__main__':
     )
     api.window = window
     webview.start(debug=False)
+    sys.exit(0)

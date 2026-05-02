@@ -1,48 +1,58 @@
-# M-Pesa Intelligence Desktop
+# 💸 MpesaAnalytics
 
-A lightweight, privacy-first desktop application for analyzing M-Pesa statements. Transform your PDF statements into actionable financial insights with zero data leaving your machine.
+A privacy-first desktop application for analyzing M-Pesa statements. Transform your messy PDF statements into beautiful, actionable financial intelligence with zero data leaving your machine.
 
-## 🚀 Features
+![MpesaAnalytics Dashboard](frontend/screenshot_placeholder.png)
 
-- **100% Offline & Private**: All parsing is done locally in-memory. No financial data is ever uploaded or stored.
-- **Pure Python Engine**: Powered by a custom-built parser (no heavy `pandas` dependency), making it extremely fast and lightweight.
-- **Modern Dashboard**: Visualize your spending, income, and cash flow patterns through an interactive UI.
-- **Deep Insights**: Automatically identifies top recipients, monthly trends, and spending categories.
-- **Portable**: Compiled into a single executable—runs without needing Python installed.
+## 🌟 Key Features
 
-## 🛠️ Project Structure
+- **100% Offline & Private**: All parsing is done locally in-memory. Your financial data never touches a server or a database.
+- **Synthesized Intelligence**: Features a high-fidelity "Intelligence" dashboard with glassmorphism aesthetics and Safaricom-themed branding.
+- **Ultra-Lightweight**: Optimized to ~59MB by using native OS webview engines instead of bundling a whole browser.
+- **Zero-Data Retention**: Every trace of your statement is wiped from memory as soon as you close the window.
+- **Multi-Platform**: Native support for both Windows (WebView2) and Linux (WebKitGTK).
 
-- `app.py`: The native desktop entry point (using `pywebview`).
-- `parser.py`: The "brain" of the app—handles PDF extraction and financial analysis.
-- `frontend/`: contains the dashboard's HTML, CSS, and interactive Javascript.
-- `build.sh` / `build.bat`: Scripts for one-click compilation using PyInstaller.
+## 🚀 Getting Started
 
-## 💻 Development Setup
+### For Users
+Simply head to the [Releases](https://github.com/SaddamTechie/mpesa_analytics/releases) page and download the version for your OS:
+- **Windows**: `MpesaAnalytics_Windows.exe`
+- **Linux**: `MpesaAnalytics_Linux` (Mark as executable: `chmod +x MpesaAnalytics_Linux`)
 
-1. **Install dependencies**:
+### For Developers
+
+1. **Setup Environment**:
    ```bash
-   uv pip install pywebview pdfplumber PyQt5 PyQtWebEngine qtpy
+   uv venv --python 3.10 --system-site-packages .venv310
+   source .venv310/bin/activate
+   uv pip install pywebview pdfplumber pyinstaller appdirs setuptools
    ```
 
-2. **Run locally**:
+2. **Run Locally**:
    ```bash
    python app.py
    ```
 
-## 📦 Building the Executable
+## 🛠️ Building & Distribution
 
-To bundle the application into a standalone folder for distribution:
+We use a highly optimized build process that strips unnecessary assets (icons, themes, etc.) to keep the binary small.
 
-- **Linux/Mac**: 
+- **Automated Build**: This repo is configured with GitHub Actions. Simply push a version tag to trigger a transparent, verified build:
   ```bash
-  ./build.sh
+  git tag v1.0
+  git push origin v1.0
   ```
-- **Windows**: 
+- **Local Build**:
   ```bash
-  build.bat
+  ./build.sh  # Linux
+  build.bat   # Windows
   ```
 
-The final application will be available in the `dist/MPesaAnalytics/` directory.
+## 🔒 Privacy & Security
+The app requires your M-Pesa PDF password  to decrypt the statement. 
+- **Encryption**: The password is used only for the local decryption session.
+- **Transparency**: The build process is automated on GitHub Actions, so you can verify that the code in the binary matches the source code here.
+- **Clean Exit**: The app calls an explicit `sys.exit(0)` on close to ensure no background processes or cached memory remain.
 
-## 🔒 Security
-The app requires your M-Pesa PDF password (usually your ID number) to decrypt the statement. This password is used only for the current session and is never saved.
+---
+*Built with ❤️ for privacy and financial clarity.*
